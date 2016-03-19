@@ -44,7 +44,10 @@ int main()
 	char body12[] = "shiwo shiwo, wo shi shabi,shabishi wo\n";
 	char end13[] = ".\n";
 	char quit14[] = "quit\n";
-
+	char MIME[] = "MIME-Version:1.0\n";	
+	char type[] = "Content-Type:text/plain;charset=us-ascii\n";
+	char fname[] = "/root/socket/Mail/Mclient.c";
+	char Encode[] = "Content-Transfer-Encoding:7bit\n";
 	if ((recbytes = read(cfd, buffer, 1024)) == -1){
 		printf("read data fail !\n");
 		return -1;
@@ -96,6 +99,10 @@ int main()
 	send(cfd, from8, strlen(from8),0);
 	send(cfd, to9, strlen(to9),0);
 	send(cfd, subject10, strlen(subject10),0);
+	send(cfd, MIME, strlen(MIME),0);
+	send(cfd, type, strlen(type),0);
+	send(cfd, fname, strlen(fname),0);
+	send(cfd, Encode, strlen(Encode),0);
 	send(cfd, crtf11, strlen(crtf11),0);
 	send(cfd, body12, strlen(body12),0);
 	send(cfd, end13, strlen(end13),0);
