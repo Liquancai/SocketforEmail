@@ -45,9 +45,16 @@ int main()
 	char end13[] = ".\n";
 	char quit14[] = "quit\n";
 	char MIME[] = "MIME-Version:1.0\n";	
-	char type[] = "Content-Type:text/plain;charset=us-ascii\n";
-	char fname[] = "/root/socket/Mail/Mclient.c";
-	char Encode[] = "Content-Transfer-Encoding:7bit\n";
+	char type[] = "Content-Type:multipart/mixed;boundary=\"===1caishu######===\"\n\n";
+	char bEncode[] = "Content-Transfer-Encoding:7bit\n\n";
+	char message[] = "This is a multi-part message in MIME\n\n";
+	char boundary[] = "--===1caishu######===\n";
+	char atype[] = "Content-Type:text/plain;charset=\"gb2312\"\n";
+	char btype[] = "Content-Type:text/plain;name=Mclient.c\n";
+	char cEncode[] = "Content- Transfer-Encoding:printable\n\n";
+	char fname[] = "Content-Disposition:attachment;filename=\"Mclient.c\"\n\n";
+	char Encode[] = "Content-Transfer-Encoding:base64\n";
+	char abody[] = "woshishabi shabishiwo";
 	if ((recbytes = read(cfd, buffer, 1024)) == -1){
 		printf("read data fail !\n");
 		return -1;
@@ -101,10 +108,18 @@ int main()
 	send(cfd, subject10, strlen(subject10),0);
 	send(cfd, MIME, strlen(MIME),0);
 	send(cfd, type, strlen(type),0);
-	send(cfd, fname, strlen(fname),0);
-	send(cfd, Encode, strlen(Encode),0);
-	send(cfd, crtf11, strlen(crtf11),0);
+//	send(cfd, bEncode, strlen(bEncode),0);
+//	send(cfd, message, strlen(message),0);
+	send(cfd, boundary, strlen(boundary),0);
+	send(cfd, atype, strlen(atype),0);
+	send(cfd, cEncode, strlen(cEncode),0);
 	send(cfd, body12, strlen(body12),0);
+	send(cfd, boundary, strlen(boundary),0);
+	send(cfd, btype, strlen(atype),0);
+//	send(cfd, Encode, strlen(Encode),0);
+	send(cfd, fname, strlen(fname),0);
+	send(cfd, abody,  strlen(abody),0);
+	send(cfd, crtf11, strlen(crtf11),0);
 	send(cfd, end13, strlen(end13),0);
 	if ((recbytes = read(cfd, buffer, 1024)) == -1){
 		printf("read data fail !\n");
