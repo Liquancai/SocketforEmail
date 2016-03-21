@@ -4,32 +4,77 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
+#define serport 8888
+#define cliport 25
+
+
+char buffer[1024] = {0};
+int len = 0;
+void sendEmail();
 int main()
 {
-	int cfd;
-	int recbytes;
-	int sin_size;
-	char buffer[1024] = {0};
-	struct sockaddr_in s_add, c_add;
-	unsigned short portnum = 25;
-	
-	cfd = socket(AF_INET, SOCK_STREAM, 0);
-	if (-1 == cfd){
-		printf("socket fail!\n");
-		return -1;
+	int serfd, accfd;
+	struct sockaddr_in s_add;
+
+	serfd = socket(AF_INET, SOCK_STREAM,0);
+	if (serfd == -1){
+		printf("server socket init fail!\n");
+		return 0;
 	}
-	printf("socket ok!\n");
-	
 	bzero(&s_add, sizeof(struct sockaddr_in));
 	s_add.sin_family = AF_INET;
-	s_add.sin_addr.s_addr = inet_addr("220.181.12.15");
-	s_add.sin_port = htons(portnum);
-	//printf("s_addr = %#x , port:%#x\n", s_add.sin_addr.s_addr, s_add.sin_port);
-	if (-1 == connect(cfd, (struct sockaddr*)(&s_add), sizeof(struct sockaddr))){
-	printf("connect fail!\n");
-	return -1;
+	s_add.sin_addr.s_addr = htonl(INADDR_ANY);
+	s_add.sin_port = htons(serport);
+	if (bind(serfd, (struct sockaddr*)&s_add, sizeof(struct sockaddr)) == -1){
+		printf("server bind fail!\n");
+		return 0;
 	}
-	printf("connect ok!\n");
+	if (listen(serfd,5) == -1){
+		printf("server listen fail!\n");
+		return 0;
+	}
+	while (1){
+		accfd = accept(serfd, NULL, NULL);
+		if (accfd == -1){
+			printf("server accept fail!\n");
+			return 0;
+		}
+		while (1){	
+			len = recv(accfd, buffer, sizeof(buffer), 0);
+			if (len != 0){
+				buffer[len] = '\0';
+				printf("%s\n", buffer);
+				if (strcmp(buffer,"ex") == 0){
+					sendEmail();
+					break;
+				}
+			}
+		}
+		close(accfd);
+	}
+	close(serfd);
+	return 0;
+}
+
+void sendEmail(){
+
+	int clifd;
+	struct sockaddr_in c_add;
+
+	clifd = socket(AF_INET, SOCK_STREAM, 0);
+	if (clifd == -1){
+		printf("client socket fail!\n");
+		return;
+	}
+	
+	bzero(&c_add, sizeof(struct sockaddr_in));
+	c_add.sin_family = AF_INET;
+	c_add.sin_addr.s_addr = inet_addr("220.181.12.15");
+	c_add.sin_port = htons(cliport);
+	if (connect(clifd, (struct sockaddr*)(&c_add), sizeof(struct sockaddr)) == -1){
+		printf("client connect fail!\n");
+		return;
+	}
 	char hello1[] = "ehlo gacl\n";
 	char auth2[] = "AUTH LOGIN\n";
 	char username3[] = "eXVhbnFpYW55aW1pYW45NQ==\n";
@@ -39,7 +84,7 @@ int main()
 	char data7[] = "DATA\n";
 	char from8[] = "from:<yuanqianyimian95@163.com>\n";
 	char to9[] = "to:<lqc_nuaa@163.com>\n";
-	char subject10[] = "subject:是我，就是我\n";
+	char subject10[] = "subject:";
 	char crtf11[] = "\n";
 	char body12[] = "shiwo shiwo, wo shi shabi,shabishi wo\n";
 	char end13[] = ".\n";
@@ -55,90 +100,87 @@ int main()
 	char fname[] = "Content-Disposition:attachment;filename=\"Mclient.c\"\n\n";
 	char Encode[] = "Content-Transfer-Encoding:base64\n";
 	char abody[] = "woshishabi shabishiwo";
-	if ((recbytes = read(cfd, buffer, 1024)) == -1){
+
+	strcpy(subject10+8, buffer);
+
+	if ((len = read(clifd, buffer, 1024)) == -1){
 		printf("read data fail !\n");
-		return -1;
+		return;
 	}
-	buffer[recbytes] = '\0';
+	printf("start!\n");
+	buffer[len] = '\0';
 	printf("%s\n", buffer);
-	send(cfd, hello1, strlen(hello1),0);
-	if ((recbytes = read(cfd, buffer, 1024)) == -1){
+
+	send(clifd, hello1, strlen(hello1),0);
+	if ((len = read(clifd, buffer, 1024)) == -1){
 		printf("read data fail !\n");
-		return -1;
+		return;
 	}
-	printf("hello1!\n");
-	buffer[recbytes] = '\0';
+	printf("to hello!\n");
+	buffer[len] = '\0';
 	printf("%s\n", buffer);
-	send(cfd, auth2, strlen(auth2),0);
-	if ((recbytes = read(cfd, buffer, 1024)) == -1){
+
+	send(clifd, auth2, strlen(auth2),0);
+	if ((len = read(clifd, buffer, 1024)) == -1){
 		printf("read data fail !\n");
-		return -1;
+		return;
 	}
-	printf("auth!\n");
-	buffer[recbytes] = '\0';
+	printf("ask username!\n");
+	buffer[len] = '\0';
 	printf("%s\n", buffer);
-	send(cfd, username3, strlen(username3),0);
-	if ((recbytes = read(cfd, buffer, 1024)) == -1){
+
+	send(clifd, username3, strlen(username3),0);
+	if ((len = read(clifd, buffer, 1024)) == -1){
 		printf("read data fail !\n");
-		return -1;
+		return;
 	}
-	printf("auth!\n");
-	buffer[recbytes] = '\0';
+	printf("ask passwd!\n");
+	buffer[len] = '\0';
 	printf("%s\n", buffer);
-	send(cfd, passwd4, strlen(passwd4),0);
-	if ((recbytes = read(cfd, buffer, 1024)) == -1){
+
+	send(clifd, passwd4, strlen(passwd4),0);
+	if ((len = read(clifd, buffer, 1024)) == -1){
 		printf("read data fail !\n");
-		return -1;
+		return;
 	}
-	printf("auth success or not!\n");
-	buffer[recbytes] = '\0';
+	printf("login result!\n");
+	buffer[len] = '\0';
 	printf("%s\n", buffer);
-	send(cfd, from5, strlen(from5),0);
-	if ((recbytes = read(cfd, buffer, 1024)) == -1){
+
+	send(clifd, from5, strlen(from5),0);
+	send(clifd, rcpt6, strlen(rcpt6),0);
+	send(clifd, data7, strlen(data7),0);
+	send(clifd, from8, strlen(from8),0);
+	send(clifd, to9, strlen(to9),0);
+	send(clifd, subject10, strlen(subject10),0);
+	send(clifd, crtf11, strlen(crtf11),0);
+	send(clifd, MIME, strlen(MIME),0);
+	send(clifd, type, strlen(type),0);
+//	send(clifd, bEncode, strlen(bEncode),0);
+//	send(clifd, message, strlen(message),0);
+	send(clifd, boundary, strlen(boundary),0);
+	send(clifd, atype, strlen(atype),0);
+	send(clifd, cEncode, strlen(cEncode),0);
+	send(clifd, body12, strlen(body12),0);
+	send(clifd, boundary, strlen(boundary),0);
+	send(clifd, btype, strlen(atype),0);
+//	send(clifd, Encode, strlen(Encode),0);
+	send(clifd, fname, strlen(fname),0);
+	send(clifd, abody,  strlen(abody),0);
+	send(clifd, crtf11, strlen(crtf11),0);
+	send(clifd, end13, strlen(end13),0);
+
+	if ((len = read(clifd, buffer, 1024)) == -1){
 		printf("read data fail !\n");
-		return -1;
+		return;
 	}
-	printf("Mailfrom!\n");
-	buffer[recbytes] = '\0';
+	printf("send result!\n");
+	buffer[len] = '\0';
 	printf("%s\n", buffer);
-	send(cfd, rcpt6, strlen(rcpt6),0);
-	send(cfd, data7, strlen(data7),0);
-	send(cfd, from8, strlen(from8),0);
-	send(cfd, to9, strlen(to9),0);
-	send(cfd, subject10, strlen(subject10),0);
-	send(cfd, MIME, strlen(MIME),0);
-	send(cfd, type, strlen(type),0);
-//	send(cfd, bEncode, strlen(bEncode),0);
-//	send(cfd, message, strlen(message),0);
-	send(cfd, boundary, strlen(boundary),0);
-	send(cfd, atype, strlen(atype),0);
-	send(cfd, cEncode, strlen(cEncode),0);
-	send(cfd, body12, strlen(body12),0);
-	send(cfd, boundary, strlen(boundary),0);
-	send(cfd, btype, strlen(atype),0);
-//	send(cfd, Encode, strlen(Encode),0);
-	send(cfd, fname, strlen(fname),0);
-	send(cfd, abody,  strlen(abody),0);
-	send(cfd, crtf11, strlen(crtf11),0);
-	send(cfd, end13, strlen(end13),0);
-	if ((recbytes = read(cfd, buffer, 1024)) == -1){
-		printf("read data fail !\n");
-		return -1;
-	}
-	printf("result\n");
-	buffer[recbytes] = '\0';
-	printf("%s\n", buffer);
-	send(cfd, quit14, strlen(quit14),0);
-	//if ((recbytes = read(cfd, buffer, 1024)) == -1){
-	//	printf("read data fail !\n");
-	//	return -1;
-	//}
-	//printf("read ok!\n");
-	//buffer[recbytes] = '\0';
-	//printf("%s\n", buffer);
-	//getchar();
-	close(cfd);
-	return 0;
+
+	send(clifd, quit14, strlen(quit14),0);
+	close(clifd);
+	return;
 }
 	
 	
