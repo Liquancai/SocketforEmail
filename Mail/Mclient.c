@@ -4,19 +4,52 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
-#define serport 8888
+#define serport 7888
 #define cliport 25
 
-
-char buffer[1024] = {0};
-char a[1024], b[1366];
-int len = 0;
-void sendEmail();
+void sendEmail(int clifd);
 void base64(char *a, char *b);
+int verify(int clifd, char *u, char *p);
 int main()
 {
-	int serfd, accfd;
-	struct sockaddr_in s_add;
+	int serfd, accfd, clifd;
+	char buffer[1024];
+	int len = 0; //用于表示接收字符长度
+	int verifyresult; //用于表示验证结果
+	struct sockaddr_in s_add, c_add;
+	char username[200], passwd[200];
+
+	clifd = socket(AF_INET, SOCK_STREAM, 0);
+	if (clifd == -1){
+		printf("client socket fail!\n");
+		return;
+	}
+	
+	bzero(&c_add, sizeof(struct sockaddr_in));
+	c_add.sin_family = AF_INET;
+	c_add.sin_addr.s_addr = inet_addr("220.181.12.15");
+	c_add.sin_port = htons(cliport);
+	if (connect(clifd, (struct sockaddr*)(&c_add), sizeof(struct sockaddr)) == -1){
+		printf("client connect fail!\n");
+		return;
+	}
+	if ((len = read(clifd, buffer, 1024)) == -1){
+		printf("read data fail !\n");
+		return;
+	}
+	printf("start:");
+	buffer[len] = '\0';
+	printf("%s\n", buffer);
+	
+	send(clifd, "ehlo gacl\n", strlen("ehlo gacl\n"),0);
+	if ((len = read(clifd, buffer, 1024)) == -1){
+		printf("read data fail !\n");
+		return;
+	}
+	printf("to hello:");
+	buffer[len] = '\0';
+	printf("%s\n", buffer);
+
 
 	serfd = socket(AF_INET, SOCK_STREAM,0);
 	if (serfd == -1){
@@ -40,56 +73,45 @@ int main()
 		if (accfd == -1){
 			printf("server accept fail!\n");
 			return 0;
-		}
-		while (1){	
-			len = recv(accfd, buffer, sizeof(buffer), 0);
-			if (len != 0){
-				buffer[len] = '\0';
-				printf("%s\n", buffer);
-				if (strcmp(buffer,"ex") == 0){
-					sendEmail();
+		}else{	
+			while(1){
+				len = recv(accfd, username, sizeof(username), 0);
+				username[len] = '\0';
+				printf("%s\n", username);
+				len = recv(accfd, passwd, sizeof(passwd), 0);
+				passwd[len] = '\0';
+				printf("%s\n", passwd);
+				verifyresult = verify(clifd, username, passwd);
+				if (verifyresult == 2)
+					send(accfd, "error2", strlen("error2"),0);
+				else if (verifyresult == 3)
+					send(accfd, "error3", strlen("error3"),0);
+				else if (verifyresult == 0){
+					send(accfd, "success", strlen("success"),0);
 					break;
-				}
+				}	
 			}
+			printf("start Email\n");
 		}
 		close(accfd);
 	}
 	close(serfd);
+	close(clifd);
 	return 0;
 }
 
-void sendEmail(){
-
-	int clifd;
-	struct sockaddr_in c_add;
-
-	clifd = socket(AF_INET, SOCK_STREAM, 0);
-	if (clifd == -1){
-		printf("client socket fail!\n");
-		return;
-	}
-	
-	bzero(&c_add, sizeof(struct sockaddr_in));
-	c_add.sin_family = AF_INET;
-	c_add.sin_addr.s_addr = inet_addr("220.181.12.15");
-	c_add.sin_port = htons(cliport);
-	if (connect(clifd, (struct sockaddr*)(&c_add), sizeof(struct sockaddr)) == -1){
-		printf("client connect fail!\n");
-		return;
-	}
+void sendEmail(int clifd){
+	char buffer[1024];
+        int len;
 	char hello1[] = "ehlo gacl\n";
 	char auth2[] = "AUTH LOGIN\n";
 //	char username3[] = "eXVhbnFpYW55aW1pYW45NQ==\n";
 //	char passwd4[] = "Y2Fpc2h1OTE3MzQ2ODUy\n";
-	strcpy(a, "yuanqianyimian95");
-	base64(a, b);
 	char username3[1366];
-	strcpy(username3, b);
+	base64("yuanqianyimian95", username3);
 	
-	strcpy(a, "caishu917346852");
-	base64(a, b);
 	char passwd4[1366];
-	strcpy(passwd4, b);	
+	base64("caishu917346852", passwd4);
 	char from5[] = "mail from:<yuanqianyimian95@163.com>\n";
 	char rcpt6[] = "rcpt to:<lqc_nuaa@163.com>\n";
 	char data7[] = "DATA\n";
@@ -112,53 +134,11 @@ void sendEmail(){
 	char Encode[] = "Content-Transfer-Encoding:base64\n";
 	char abody[] = "woshishabi shabishiwo";
 
-	strcpy(subject10+8, buffer);
 
-	if ((len = read(clifd, buffer, 1024)) == -1){
-		printf("read data fail !\n");
-		return;
-	}
-	printf("start!\n");
-	buffer[len] = '\0';
-	printf("%s\n", buffer);
 
-	send(clifd, hello1, strlen(hello1),0);
-	if ((len = read(clifd, buffer, 1024)) == -1){
-		printf("read data fail !\n");
-		return;
-	}
-	printf("to hello!\n");
-	buffer[len] = '\0';
-	printf("%s\n", buffer);
 
-	send(clifd, auth2, strlen(auth2),0);
-	if ((len = read(clifd, buffer, 1024)) == -1){
-		printf("read data fail !\n");
-		return;
-	}
-	printf("ask username!\n");
-	buffer[len] = '\0';
-	printf("%s\n", buffer);
 
-	send(clifd, username3, strlen(username3),0);
-	send(clifd, crtf11, strlen(crtf11),0);
-	if ((len = read(clifd, buffer, 1024)) == -1){
-		printf("read data fail !\n");
-		return;
-	}
-	printf("ask passwd!\n");
-	buffer[len] = '\0';
-	printf("%s\n", buffer);
 
-	send(clifd, passwd4, strlen(passwd4),0);
-	send(clifd, crtf11, strlen(crtf11),0);
-	if ((len = read(clifd, buffer, 1024)) == -1){
-		printf("read data fail !\n");
-		return;
-	}
-	printf("login result!\n");
-	buffer[len] = '\0';
-	printf("%s\n", buffer);
 
 	send(clifd, from5, strlen(from5),0);
 	send(clifd, rcpt6, strlen(rcpt6),0);
@@ -192,7 +172,6 @@ void sendEmail(){
 	printf("%s\n", buffer);
 
 	send(clifd, quit14, strlen(quit14),0);
-	close(clifd);
 	return;
 }
 
@@ -280,5 +259,50 @@ void base64(char *a, char *b){
 	b[j] = '\0';
 }
 
+int verify(int clifd, char *u, char *p){
+	int len;
+	char username[250], passwd[250], buffer[1024];
+	base64(u, username);
+	base64(p, passwd);
+	
+	send(clifd, "auth login\n", strlen("auth login\n"),0);
+	if ((len = read(clifd, buffer, 1024)) == -1){
+		printf("read data fail !\n");
+		return;
+	}
+	printf("ask username:");
+	buffer[len] = '\0';
+	printf("%s\n", buffer);
+	
+	send(clifd, username, strlen(username),0);
+	send(clifd, "\n", strlen("\n"),0);
+	if ((len = read(clifd, buffer, 1024)) == -1){
+		printf("read data fail !\n");
+		return;
+	}
+	printf("ask passwd:");
+	buffer[len] = '\0';
+	printf("%s\n", buffer);
+	if (buffer[0] == '5'){
+		printf("error2\n");
+		return 2;
+	}
+
+	send(clifd, passwd, strlen(passwd),0);
+	send(clifd, "\n", strlen("\n"),0);
+	if ((len = read(clifd, buffer, 1024)) == -1){
+		printf("read data fail !\n");
+		return;
+	}
+	printf("login result:");
+	buffer[len] = '\0';
+	printf("%s\n", buffer);
+	if (buffer[0] == '5'){
+		printf("error3\n");
+		return 3;
+	}
+
+	return 0;
+}
 	
 	
