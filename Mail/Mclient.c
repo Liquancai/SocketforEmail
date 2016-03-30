@@ -10,46 +10,17 @@
 void sendEmail(int clifd, char *username, char *rcpt, char *subject, char *body, char *result);
 void base64(char *a, char *b);
 int verify(int clifd, char *u, char *p);
+void authlogin(int clifd, char *u, char *p);
+void clientinit(int *c, int flag);
 int main()
 {
 	int serfd, accfd, clifd;
 	char buffer[1024];
 	int len = 0; //用于表示接收字符长度
 	int verifyresult; //用于表示验证结果
-	struct sockaddr_in s_add, c_add;
+	int sendagain = 1;
+	struct sockaddr_in s_add;
 	char username[200], passwd[200], rcpt[1024], subject[1024], body[2048], sendresult[50];
-
-	clifd = socket(AF_INET, SOCK_STREAM, 0);
-	if (clifd == -1){
-		printf("client socket fail!\n");
-		return;
-	}
-	
-	bzero(&c_add, sizeof(struct sockaddr_in));
-	c_add.sin_family = AF_INET;
-	c_add.sin_addr.s_addr = inet_addr("220.181.12.15");
-	c_add.sin_port = htons(cliport);
-	if (connect(clifd, (struct sockaddr*)(&c_add), sizeof(struct sockaddr)) == -1){
-		printf("client connect fail!\n");
-		return;
-}
-	if ((len = read(clifd, buffer, 1024)) == -1){
-		printf("read data fail !\n");
-		return;
-	}
-	printf("start:");
-	buffer[len] = '\0';
-	printf("%s\n", buffer);
-	
-	send(clifd, "ehlo gacl\n", strlen("ehlo gacl\n"),0);
-	if ((len = read(clifd, buffer, 1024)) == -1){
-		printf("read data fail !\n");
-		return;
-	}
-	printf("to hello:");
-	buffer[len] = '\0';
-	printf("%s\n", buffer);
-
 
 	serfd = socket(AF_INET, SOCK_STREAM,0);
 	if (serfd == -1){
@@ -81,7 +52,12 @@ int main()
 				len = recv(accfd, passwd, sizeof(passwd), 0);
 				passwd[len] = '\0';
 				printf("p %s\n", passwd);
+				if (strstr(username,"@163.com") == NULL)
+					clientinit(&clifd, 2);
+				else 
+					clientinit(&clifd, 1);
 				verifyresult = verify(clifd, username, passwd);
+				close(clifd);
 				if (verifyresult == 2)
 					send(accfd, "error2", strlen("error2"),0);
 				else if (verifyresult == 3)
@@ -91,22 +67,35 @@ int main()
 					break;
 				}	
 			}
- 			printf("start Email\n");
-			len = recv(accfd, rcpt, sizeof(rcpt), 0);
-			rcpt[len] = '\0';
-			printf("1 %s\n", rcpt);
+			while (sendagain){
+				if (strstr(username,"@163.com") == NULL)
+					clientinit(&clifd, 2);
+				else 
+					clientinit(&clifd, 1);
+				authlogin(clifd, username, passwd);
+				
+				len = recv(accfd, buffer, sizeof(buffer), 0);
+				if (buffer[0] == '1')
+					sendagain = 1;
+				else 
+					break;			
 	
-			len = recv(accfd, subject, sizeof(subject), 0);
-			subject[len] = '\0';
-			printf("2 %s\n", subject);
+				len = recv(accfd, rcpt, sizeof(rcpt), 0);
+				rcpt[len] = '\0';
+				printf("1 %s\n", rcpt);
+	
+				len = recv(accfd, subject, sizeof(subject), 0);
+				subject[len] = '\0';
+				printf("2 %s\n", subject);
 			
-			send(accfd, "get2", strlen("get2"),0);
+				send(accfd, "get2", strlen("get2"),0);
 
-			len = recv(accfd, body, sizeof(body), 0);
-			body[len] = '\0';
-			printf("3 %s\n", body);
-			sendEmail(clifd, username, rcpt, subject, body, sendresult);
-			send(accfd, sendresult, strlen(sendresult),0);
+				len = recv(accfd, body, sizeof(body), 0);
+				body[len] = '\0';
+				printf("3 %s\n", body);
+				sendEmail(clifd, username, rcpt, subject, body, sendresult);
+				send(accfd, sendresult, strlen(sendresult),0);
+			}
 		}
 		close(accfd);
 	}
@@ -114,7 +103,6 @@ int main()
 	close(clifd);
 	return 0;
 }
-
 void sendEmail(int clifd, char *username, char *rcpt, char *subject, char *body, char *result){
 	char buffer[1024];
         int len;
@@ -144,6 +132,7 @@ void sendEmail(int clifd, char *username, char *rcpt, char *subject, char *body,
 	char subject10[1024];
 	strcpy(subject10, "subject:");
 	strcat(subject10, subject);
+	strcat(subject10, "\n");
 	
 	char crtf11[] = "\n";
 	
@@ -318,5 +307,77 @@ int verify(int clifd, char *u, char *p){
 		return 3;
 	}
 
+	send(clifd, "quit\n", strlen("quit\n"),0);
 	return 0;
+}
+void clientinit(int *c, int flag){
+
+	struct sockaddr_in c_add;
+	char buffer[1024];
+	int len = 0; //用于表示接收字符长度
+	*c = socket(AF_INET, SOCK_STREAM, 0);
+	if (*c == -1){
+		printf("client socket fail!\n");
+		return;
+	}
+	
+	bzero(&c_add, sizeof(struct sockaddr_in));
+	c_add.sin_family = AF_INET;
+	if (flag == 1)
+		c_add.sin_addr.s_addr = inet_addr("220.181.12.15");
+	else
+		c_add.sin_addr.s_addr = inet_addr("220.181.15.111");
+	c_add.sin_port = htons(cliport);
+	if (connect(*c, (struct sockaddr*)(&c_add), sizeof(struct sockaddr)) == -1){
+		printf("client connect fail!\n");
+		return;
+}
+	if ((len = read(*c, buffer, 1024)) == -1){
+		printf("read data fail !\n");
+		return;
+	}
+	printf("start:");
+	buffer[len] = '\0';
+	printf("%s\n", buffer);
+	
+	send(*c, "ehlo gacl\n", strlen("ehlo gacl\n"),0);
+	if ((len = read(*c, buffer, 1024)) == -1){
+		printf("read data fail !\n");
+		return;
+	}
+	printf("to hello:");
+	buffer[len] = '\0';
+	printf("%s\n", buffer);
+
+}
+
+void authlogin(int clifd, char *u, char *p){
+	int len;
+	char username[250], passwd[250], buffer[1024];
+	base64(u, username);
+	base64(p, passwd);
+	
+	send(clifd, "auth login\n", strlen("auth login\n"),0);
+	if ((len = read(clifd, buffer, 1024)) == -1){
+		printf("read data fail !\n");
+		return;
+	}
+//	printf("ask username:");
+	buffer[len] = '\0';
+//	printf("%s\n", buffer);
+	
+	send(clifd, username, strlen(username),0);
+	send(clifd, "\n", strlen("\n"),0);
+	if ((len = read(clifd, buffer, 1024)) == -1){
+		printf("read data fail !\n");
+		return;
+	}
+
+	send(clifd, passwd, strlen(passwd),0);
+	send(clifd, "\n", strlen("\n"),0);
+	if ((len = read(clifd, buffer, 1024)) == -1){
+		printf("read data fail !\n");
+		return;
+	}
+
 }
