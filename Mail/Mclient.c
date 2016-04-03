@@ -7,20 +7,27 @@
 #define serport 7888
 #define cliport 25
 
-void sendEmail(int clifd, char *username, char *rcpt, char *subject, char *body, char *result);
+void sendEmail1(int clifd, int accfd);
+void sendEmail2(int clifd, int accfd);
+void sendEmail0(int clifd, int accfd);
 void base64(char *a, char *b);
 int verify(int clifd, char *u, char *p);
 void authlogin(int clifd, char *u, char *p);
 void clientinit(int *c, int flag);
+	
+char username[200], passwd[200], rcpt[1024], subject[1024], body[2048], attach[65536];
+int nRecvBuf= 65536;
+int nSendBuf= 65536;
 int main()
 {
 	int serfd, accfd, clifd;
+
+
 	char buffer[1024];
 	int len = 0; //用于表示接收字符长度
 	int verifyresult; //用于表示验证结果
 	int sendagain = 1;
 	struct sockaddr_in s_add;
-	char username[200], passwd[200], rcpt[1024], subject[1024], body[2048], sendresult[50];
 
 	serfd = socket(AF_INET, SOCK_STREAM,0);
 	if (serfd == -1){
@@ -35,12 +42,18 @@ int main()
 		printf("server bind fail!\n");
 		return 0;
 	}
+	if (0 !=setsockopt(serfd, SOL_SOCKET,SO_RCVBUF,(const char*)&nRecvBuf,sizeof(int))){
+	printf("cao\n");
+}
 	if (listen(serfd,10) == -1){
 		printf("server listen fail!\n");
 		return 0;
 	}
 	while (1){
 		accfd = accept(serfd, NULL, NULL);
+	if (0 != setsockopt(accfd, SOL_SOCKET,SO_RCVBUF,(const char*)&nRecvBuf,sizeof(int))){
+	printf("nima\n");
+}
 		if (accfd == -1){
 			printf("server accept fail!\n");
 			return 0;
@@ -80,21 +93,13 @@ int main()
 				else 
 					break;			
 	
-				len = recv(accfd, rcpt, sizeof(rcpt), 0);
-				rcpt[len] = '\0';
-				printf("1 %s\n", rcpt);
-	
-				len = recv(accfd, subject, sizeof(subject), 0);
-				subject[len] = '\0';
-				printf("2 %s\n", subject);
-			
-				send(accfd, "get2", strlen("get2"),0);
-
-				len = recv(accfd, body, sizeof(body), 0);
-				body[len] = '\0';
-				printf("3 %s\n", body);
-				sendEmail(clifd, username, rcpt, subject, body, sendresult);
-				send(accfd, sendresult, strlen(sendresult),0);
+				len = recv(accfd, buffer, sizeof(buffer), 0);
+				if (buffer[0] == '1')
+					sendEmail1(clifd, accfd);
+				else if (buffer[0] == '2')
+					sendEmail2(clifd, accfd);
+				else 		
+					sendEmail0(clifd, accfd);
 			}
 		}
 		close(accfd);
@@ -103,9 +108,24 @@ int main()
 	close(clifd);
 	return 0;
 }
-void sendEmail(int clifd, char *username, char *rcpt, char *subject, char *body, char *result){
+void sendEmail0(int clifd, int accfd){
 	char buffer[1024];
         int len;
+	
+	len = recv(accfd, rcpt, sizeof(rcpt), 0);
+	rcpt[len] = '\0';
+	printf("1 %s\n", rcpt);
+
+	send(accfd, "get2", strlen("get2"),0);
+	len = recv(accfd, subject, sizeof(subject), 0);
+	subject[len] = '\0';
+	printf("2 %s\n", subject);
+
+
+	len = recv(accfd, body, sizeof(body), 0);
+	body[len] = '\0';
+	printf("3 %s\n", body);
+	
 	
 	char from5[300];
 	strcpy(from5, "mail from:<");
@@ -150,13 +170,11 @@ void sendEmail(int clifd, char *username, char *rcpt, char *subject, char *body,
 	char bEncode[] = "Content-Transfer-Encoding:7bit\n\n";
 	char message[] = "This is a multi-part message in MIME\n\n";
 	char boundary[] = "--===1caishu######===\n";
-	char atype[] = "Content-Type:text/plain;charset=\"gb2312\"\n";
-	char btype[] = "Content-Type:text/plain;name=Mclient.c\n";
-	char cEncode[] = "Content- Transfer-Encoding:printable\n\n";
+	char bodytype[] = "Content-Type:text/plain;charset=\"gb2312\"\n";
+	char attachtype[] = "Content-Type:text/plain;name=Mclient.c\n";
+	char bodyEncode[] = "Content- Transfer-Encoding:printable\n\n";
 	char fname[] = "Content-Disposition:attachment;filename=\"Mclient.c\"\n\n";
 	char Encode[] = "Content-Transfer-Encoding:base64\n";
-	char abody[] = "woshishabi shabishiwo";
-
 
 	send(clifd, from5, strlen(from5),0);
 	send(clifd, rcpt6, strlen(rcpt6),0);
@@ -164,19 +182,252 @@ void sendEmail(int clifd, char *username, char *rcpt, char *subject, char *body,
 	send(clifd, from8, strlen(from8),0);
 	send(clifd, to9, strlen(to9),0);
 	send(clifd, subject10, strlen(subject10),0);
+//	send(clifd, MIME, strlen(MIME),0);
+//	send(clifd, type, strlen(type),0);
+//	send(clifd, boundary, strlen(boundary),0);
+//	send(clifd, bodytype, strlen(bodytype),0);
+//	send(clifd, bodyEncode, strlen(bodyEncode),0);
+//	send(clifd, body12, strlen(body12),0);
+//	send(clifd, boundary, strlen(boundary),0);
+//	send(clifd, attachtype, strlen(attachtype),0);
+//	send(clifd, fname, strlen(fname),0);
+//	send(clifd, abody, strlen(abody),0);
 	send(clifd, crtf11, strlen(crtf11),0);
 	send(clifd, body12, strlen(body12),0);
 	send(clifd, end13, strlen(end13),0);
 
-	if ((len = read(clifd, result, 1024)) == -1){
+	if ((len = read(clifd, buffer, 1024)) == -1){
 		printf("read data fail !\n");
 		return;
 	}
 	printf("send result:");
-	result[len] = '\0';
-	printf("%s\n", result);
+	buffer[len] = '\0';
+	printf("%s\n", buffer);
 
 	send(clifd, quit14, strlen(quit14),0);
+	send(accfd, buffer, strlen(buffer),0);
+	return;
+}
+void sendEmail2(int clifd, int accfd){
+	char buffer[1024];
+        int len;
+	
+	len = recv(accfd, rcpt, sizeof(rcpt), 0);
+	rcpt[len] = '\0';
+	printf("1 %s\n", rcpt);
+
+	send(accfd, "get2", strlen("get2"),0);
+	len = recv(accfd, subject, sizeof(subject), 0);
+	subject[len] = '\0';
+	printf("2 %s\n", subject);
+
+	len = recv(accfd, body, sizeof(body), 0);
+	body[len] = '\0';
+	printf("3 %s\n", body);
+	
+	send(accfd, "get2", strlen("get2"),0);
+
+	char attachname[100];
+	len = recv(accfd, attachname, sizeof(attachname), 0);
+	attachname[len] = '\0';
+	printf("4 %s\n", attachname);
+
+	len = recv(accfd, attach, sizeof(attach), 0);
+	attach[len] = '\0';
+	printf("5 %s\n", attach);
+	
+	char from5[300];
+	strcpy(from5, "mail from:<");
+	strcat(from5, username);
+	strcat(from5, ">\n");
+
+	char rcpt6[300];
+	strcpy(rcpt6, "rcpt to:<");
+	strcat(rcpt6, rcpt);
+	strcat(rcpt6, ">\n");
+
+	char data7[] = "DATA\n";
+
+	char from8[300];
+	strcpy(from8, "from:<");
+	strcat(from8, username);
+	strcat(from8, ">\n");
+	
+	char to9[300];
+	strcpy(to9, "to:<");
+	strcat(to9, rcpt);
+	strcat(to9, ">\n");
+	
+	char subject10[1024];
+	strcpy(subject10, "subject:");
+	strcat(subject10, subject);
+	strcat(subject10, "\n");
+	
+	char crtf11[] = "\n";
+	
+	char body12[2048];
+	strcpy(body12, body);
+	strcat(body12, "\n");
+	
+	char end13[] = ".\n";
+	
+	char quit14[] = "quit\n";
+	
+	char MIME[] = "MIME-Version:1.0\n";	
+	
+	char type[] = "Content-Type:multipart/mixed;boundary=\"===1caishu######===\"\n\n";
+	char bEncode[] = "Content-Transfer-Encoding:7bit\n\n";
+	char message[] = "This is a multi-part message in MIME\n\n";
+	char boundary[] = "--===1caishu######===\n";
+	char bodytype[] = "Content-Type:text/plain;charset=\"gb2312\"\n";
+	char attachtype[] = "Content-Type:image/gif\n";
+	char bodyEncode[] = "Content- Transfer-Encoding:printable\n\n";
+	char fname[300];
+	strcpy(fname, "Content-Disposition:attachment;filename=\"");
+	strcat(fname, attachname);
+	strcat(fname, "\"\n\n");
+	char attachEncode[] = "Content-Transfer-Encoding:base64\n";
+
+	send(clifd, from5, strlen(from5),0);
+	send(clifd, rcpt6, strlen(rcpt6),0);
+	send(clifd, data7, strlen(data7),0);
+	send(clifd, from8, strlen(from8),0);
+	send(clifd, to9, strlen(to9),0);
+	send(clifd, subject10, strlen(subject10),0);
+	send(clifd, MIME, strlen(MIME),0);
+	send(clifd, type, strlen(type),0);
+	send(clifd, boundary, strlen(boundary),0);
+	send(clifd, bodytype, strlen(bodytype),0);
+	send(clifd, bodyEncode, strlen(bodyEncode),0);
+	send(clifd, body12, strlen(body12),0);
+	send(clifd, boundary, strlen(boundary),0);
+	send(clifd, attachtype, strlen(attachtype),0);
+	send(clifd, attachEncode, strlen(attachEncode),0);
+	send(clifd, fname, strlen(fname),0);
+	send(clifd, attach, strlen(attach),0);
+	send(clifd, crtf11, strlen(crtf11),0);
+	send(clifd, end13, strlen(end13),0);
+
+	if ((len = read(clifd, buffer, 1024)) == -1){
+		printf("read data fail !\n");
+		return;
+	}
+	printf("send result:");
+	buffer[len] = '\0';
+	printf("%s\n", buffer);
+
+	send(clifd, quit14, strlen(quit14),0);
+	send(accfd, buffer, strlen(buffer),0);
+	return;
+}
+void sendEmail1(int clifd, int accfd){
+	char buffer[1024];
+        int len;
+	
+	len = recv(accfd, rcpt, sizeof(rcpt), 0);
+	rcpt[len] = '\0';
+	printf("1 %s\n", rcpt);
+
+	send(accfd, "get2", strlen("get2"),0);
+	len = recv(accfd, subject, sizeof(subject), 0);
+	subject[len] = '\0';
+	printf("2 %s\n", subject);
+
+	len = recv(accfd, body, sizeof(body), 0);
+	body[len] = '\0';
+	printf("3 %s\n", body);
+	
+	send(accfd, "get2", strlen("get2"),0);
+
+	char attachname[100];
+	len = recv(accfd, attachname, sizeof(attachname), 0);
+	attachname[len] = '\0';
+	printf("5 %s\n", attachname);
+
+	len = recv(accfd, attach, sizeof(attach), 0);
+	attach[len] = '\0';
+	printf("4 %s\n", attach);
+	char from5[300];
+	strcpy(from5, "mail from:<");
+	strcat(from5, username);
+	strcat(from5, ">\n");
+
+	char rcpt6[300];
+	strcpy(rcpt6, "rcpt to:<");
+	strcat(rcpt6, rcpt);
+	strcat(rcpt6, ">\n");
+
+	char data7[] = "DATA\n";
+
+	char from8[300];
+	strcpy(from8, "from:<");
+	strcat(from8, username);
+	strcat(from8, ">\n");
+	
+	char to9[300];
+	strcpy(to9, "to:<");
+	strcat(to9, rcpt);
+	strcat(to9, ">\n");
+	
+	char subject10[1024];
+	strcpy(subject10, "subject:");
+	strcat(subject10, subject);
+	strcat(subject10, "\n");
+	
+	char crtf11[] = "\n";
+	
+	char body12[2048];
+	strcpy(body12, body);
+	strcat(body12, "\n");
+	
+	char end13[] = ".\n";
+	
+	char quit14[] = "quit\n";
+	
+	char MIME[] = "MIME-Version:1.0\n";	
+	
+	char type[] = "Content-Type:multipart/mixed;boundary=\"===1caishu######===\"\n\n";
+	char bEncode[] = "Content-Transfer-Encoding:7bit\n\n";
+	char message[] = "This is a multi-part message in MIME\n\n";
+	char boundary[] = "--===1caishu######===\n";
+	char bodytype[] = "Content-Type:text/plain;charset=\"gb2312\"\n";
+	char attachtype[] = "Content-Type:text/plain\n";
+	char bodyEncode[] = "Content- Transfer-Encoding:printable\n\n";
+	char fname[300];
+	strcpy(fname, "Content-Disposition:attachment;filename=\"");
+	strcat(fname, attachname);
+	strcat(fname, "\"\n\n");
+	char Encode[] = "Content-Transfer-Encoding:base64\n";
+
+	send(clifd, from5, strlen(from5),0);
+	send(clifd, rcpt6, strlen(rcpt6),0);
+	send(clifd, data7, strlen(data7),0);
+	send(clifd, from8, strlen(from8),0);
+	send(clifd, to9, strlen(to9),0);
+	send(clifd, subject10, strlen(subject10),0);
+	send(clifd, MIME, strlen(MIME),0);
+	send(clifd, type, strlen(type),0);
+	send(clifd, boundary, strlen(boundary),0);
+	send(clifd, bodytype, strlen(bodytype),0);
+	send(clifd, bodyEncode, strlen(bodyEncode),0);
+	send(clifd, body12, strlen(body12),0);
+	send(clifd, boundary, strlen(boundary),0);
+	send(clifd, attachtype, strlen(attachtype),0);
+	send(clifd, fname, strlen(fname),0);
+	send(clifd, attach, strlen(attach),0);
+	send(clifd, crtf11, strlen(crtf11),0);
+	send(clifd, end13, strlen(end13),0);
+
+	if ((len = read(clifd, buffer, 1024)) == -1){
+		printf("read data fail !\n");
+		return;
+	}
+	printf("send result:");
+	buffer[len] = '\0';
+	printf("%s\n", buffer);
+
+	send(clifd, quit14, strlen(quit14),0);
+	send(accfd, buffer, strlen(buffer),0);
 	return;
 }
 
