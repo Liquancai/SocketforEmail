@@ -4,7 +4,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
-#define serport 7888
+#define serport 8888
 #define cliport 25
 
 void sendEmail1(int clifd, int accfd);
@@ -16,8 +16,6 @@ void authlogin(int clifd, char *u, char *p);
 void clientinit(int *c, int flag);
 	
 char username[200], passwd[200], rcpt[1024], subject[1024], body[2048], attach[65536];
-int nRecvBuf= 65536;
-int nSendBuf= 65536;
 int main()
 {
 	int serfd, accfd, clifd;
@@ -42,18 +40,12 @@ int main()
 		printf("server bind fail!\n");
 		return 0;
 	}
-	if (0 !=setsockopt(serfd, SOL_SOCKET,SO_RCVBUF,(const char*)&nRecvBuf,sizeof(int))){
-	printf("cao\n");
-}
 	if (listen(serfd,10) == -1){
 		printf("server listen fail!\n");
 		return 0;
 	}
 	while (1){
 		accfd = accept(serfd, NULL, NULL);
-	if (0 != setsockopt(accfd, SOL_SOCKET,SO_RCVBUF,(const char*)&nRecvBuf,sizeof(int))){
-	printf("nima\n");
-}
 		if (accfd == -1){
 			printf("server accept fail!\n");
 			return 0;
@@ -232,9 +224,21 @@ void sendEmail2(int clifd, int accfd){
 	attachname[len] = '\0';
 	printf("4 %s\n", attachname);
 
-	len = recv(accfd, attach, sizeof(attach), 0);
-	attach[len] = '\0';
-	printf("5 %s\n", attach);
+	int length, i = 0;
+	len = recv(accfd, buffer, sizeof(buffer), 0);
+	length = buffer[0] - '0';
+	printf("5 %d\n", length);
+	
+	send(accfd, "get2", strlen("get2"),0);
+	for (; i<=length; i++){
+		len = recv(accfd, buffer, sizeof(buffer), 0);
+		buffer[len] = '\0';
+		if (i < length)
+			send(accfd, "get", strlen("get"),0);
+		strcat(attach, buffer);
+	}
+
+	printf("6 %s\n", attach);
 	
 	char from5[300];
 	strcpy(from5, "mail from:<");
