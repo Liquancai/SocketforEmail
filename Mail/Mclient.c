@@ -15,7 +15,7 @@ int verify(int clifd, char *u, char *p);
 void authlogin(int clifd, char *u, char *p);
 void clientinit(int *c, int flag);
 	
-char username[200], passwd[200], rcpt[1024], subject[1024], body[2048], attach[65536];
+char username[200], passwd[200], rcpt[1024], subject[1024], body[2048], attach[10240000];
 int main()
 {
 	int serfd, accfd, clifd;
@@ -77,15 +77,16 @@ int main()
 					clientinit(&clifd, 2);
 				else 
 					clientinit(&clifd, 1);
-				authlogin(clifd, username, passwd);
 				
 				len = recv(accfd, buffer, sizeof(buffer), 0);
 				if (buffer[0] == '1')
 					sendagain = 1;
 				else 
 					break;			
-	
+				printf("----%s\n", buffer);
+					
 				len = recv(accfd, buffer, sizeof(buffer), 0);
+				authlogin(clifd, username, passwd);
 				if (buffer[0] == '1')
 					sendEmail1(clifd, accfd);
 				else if (buffer[0] == '2')
@@ -103,7 +104,10 @@ int main()
 void sendEmail0(int clifd, int accfd){
 	char buffer[1024];
         int len;
-	
+	rcpt[0] = '\0';
+	subject[0] = '\0';
+	body[0] = '\0';
+
 	len = recv(accfd, rcpt, sizeof(rcpt), 0);
 	rcpt[len] = '\0';
 	printf("1 %s\n", rcpt);
@@ -203,7 +207,10 @@ void sendEmail0(int clifd, int accfd){
 void sendEmail2(int clifd, int accfd){
 	char buffer[1024];
         int len;
-	
+	rcpt[0] = '\0';
+	subject[0] = '\0';
+	body[0] = '\0';
+	attach[0] = '\0';
 	len = recv(accfd, rcpt, sizeof(rcpt), 0);
 	rcpt[len] = '\0';
 	printf("1 %s\n", rcpt);
@@ -226,20 +233,18 @@ void sendEmail2(int clifd, int accfd){
 
 	int length, i = 0;
 	len = recv(accfd, buffer, sizeof(buffer), 0);
-	length = buffer[0] - '0';
+	buffer[len] = '\0';
+	length = atol(buffer);
 	printf("5 %d\n", length);
 	
 	send(accfd, "get2", strlen("get2"),0);
 	for (; i<=length; i++){
 		len = recv(accfd, buffer, sizeof(buffer), 0);
 		buffer[len] = '\0';
-		if (i < length)
-			send(accfd, "get", strlen("get"),0);
+		send(accfd, "get2", strlen("get2"),0);
 		strcat(attach, buffer);
 	}
 
-	printf("6 %s\n", attach);
-	
 	char from5[300];
 	strcpy(from5, "mail from:<");
 	strcat(from5, username);
@@ -327,7 +332,10 @@ void sendEmail2(int clifd, int accfd){
 void sendEmail1(int clifd, int accfd){
 	char buffer[1024];
         int len;
-	
+	rcpt[0] = '\0';
+	subject[0] = '\0';
+	body[0] = '\0';
+	attach[0] = '\0';
 	len = recv(accfd, rcpt, sizeof(rcpt), 0);
 	rcpt[len] = '\0';
 	printf("1 %s\n", rcpt);
@@ -346,11 +354,22 @@ void sendEmail1(int clifd, int accfd){
 	char attachname[100];
 	len = recv(accfd, attachname, sizeof(attachname), 0);
 	attachname[len] = '\0';
-	printf("5 %s\n", attachname);
+	printf("4 %s\n", attachname);
 
-	len = recv(accfd, attach, sizeof(attach), 0);
-	attach[len] = '\0';
-	printf("4 %s\n", attach);
+	int length, i = 0;
+	len = recv(accfd, buffer, sizeof(buffer), 0);
+	buffer[len] = '\0';
+	length = atol(buffer);
+	printf("5 %d\n", length);
+	
+	send(accfd, "get2", strlen("get2"),0);
+	for (; i<=length; i++){
+		len = recv(accfd, buffer, sizeof(buffer), 0);
+		buffer[len] = '\0';
+		send(accfd, "get", strlen("get"),0);
+		strcat(attach, buffer);
+	}
+	
 	char from5[300];
 	strcpy(from5, "mail from:<");
 	strcat(from5, username);
